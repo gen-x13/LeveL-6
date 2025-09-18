@@ -3,7 +3,7 @@
 ### **🏆 Project : Handwritten Numbers Recognition**
 
 - **📌 Description:**  
-  This project shows **images of handwritten numbers after user input** (first version).  
+  This project predicts **images of handwritten numbers after user input** from the MNIST dataset (first version).  
   There is only one version available:
   - 🇬🇧 **English version**: Includes English commentary (`-en`).
 
