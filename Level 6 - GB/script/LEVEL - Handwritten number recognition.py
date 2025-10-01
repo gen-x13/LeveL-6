@@ -1,9 +1,15 @@
 """ #genxcode - LEVEL : Handwritten number recognition """
 
 # Import 
+import cv2 as cv
 import numpy as np
+import tkinter as tk
+from PIL import Image
+import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
+from tkinter.messagebox import showinfo
 from sklearn.datasets import fetch_openml
+from customtkinter import filedialog as fd
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
@@ -23,8 +29,8 @@ y = np.array(mnist.target)
 
 # Shuffling the values of x and y on the index array
 si = np.random.permutation(X.shape[0]) # Randomly permute a range (X and y)
-X = X[si]
-y = y[si]
+X = X[si] # contain pictures
+y = y[si] # contain labels
 
 # Splitting data into Train and Test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
@@ -63,17 +69,13 @@ mean_scores = results['mean_test_score']
 # Accuracy from tested data
 accuracy = grid.score(X_test, y_test)
 
-
 # ------------------------------- Results & Prediction -----------------------#
-
 
 # Configuration of the GUI
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 import matplotlib
-
-
 
 # Results
 class ShowResults(ctk.CTkScrollableFrame):
@@ -127,6 +129,7 @@ class ShowResults(ctk.CTkScrollableFrame):
         canvas_widget = canvas.get_tk_widget()
         canvas_widget.grid(row=3, column=0, padx=1, pady=1)
 
+# ----------------------------------The Predict Frame ------------------------#         
 
 # Prediction Displayed after the user enter a number
 class Predict(ctk.CTkScrollableFrame): 
@@ -250,6 +253,156 @@ class Predict(ctk.CTkScrollableFrame):
             self.chat.configure(state="disabled")
             self.chat.see("end")
 
+# -------------------------------The Photo Recognition -----------------------#         
+            
+# Prediction Displayed after the user enter a number
+class PhotoPredict(ctk.CTkFrame): 
+    
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        
+        # Clearing the window from any widgets
+        for widget in app.winfo_children():
+            widget.pack_forget()
+        
+        self.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+        
+        # Return Button
+        back_button = ctk.CTkButton(self, 
+                                   text="← Return to menu",
+                                   fg_color="grey",
+                                   hover_color="black",
+                                   command=lambda: self.winfo_toplevel().return_menu())
+        back_button.pack(pady=0)
+        
+        self.picture_setup()
+        
+    def picture_setup(self):
+    
+         self.pic_frame = ctk.CTkScrollableFrame(self)
+         self.pic_frame.pack(fill="both", expand=True, padx=20, pady=10)
+         
+         ctk.CTkLabel(self.pic_frame, text="Select a Handwritten Number Picture", 
+                     font=ctk.CTkFont(size=18, weight="bold")).pack(pady=10)
+         
+         def select_file():
+             
+             filetypes = (
+                 ('png files', '*.png'),
+                 ('jpg files', '*.jpg'),
+                 ('jfif files', '*.jfif'),
+                 ('tiff files', '*.tiff'),
+                 ('bmp files', '*.bmp')
+             )
+         
+             filename = fd.askopenfilename(
+                 title='Open a file',
+                 initialdir='/',
+                 filetypes=filetypes)
+         
+             if filename:
+                 self.selected_filename = filename
+                 showinfo(
+                     title='Selected File',
+                     message=filename
+                 )
+                 # Traiter le fichier immédiatement
+                 process_file()
+             
+             return filename
+         
+         self.p_frame = ctk.CTkScrollableFrame(self)
+         self.p_frame.pack(fill="both", pady=10)
+         
+         self.b_frame = ctk.CTkFrame(self)
+         self.b_frame.pack(pady=10)
+         
+         # open button
+         open_button = ctk.CTkButton(
+             self.b_frame,
+             text='Select Picture',
+             command=select_file
+         )
+         
+         open_button.pack(side="left", padx=10)
+         
+         # predict button
+         predict_button = ctk.CTkButton(
+             self.b_frame,
+             text='Predict',
+             command=self.cv_image
+         )
+         
+         predict_button.pack(side="left", padx=10)
+         
+         
+         def process_file():
+             
+             if self.selected_filename is not None:
+                 
+                 try:
+                     
+                     img = Image.open(self.selected_filename)
+                     self.picture = img
+                     
+                     self.my_image = ctk.CTkImage(light_image=img,
+                                                  size=(100, 100))
+                 
+                     my_label = ctk.CTkLabel(self.pic_frame, text="", 
+                                             image=self.my_image)
+                     my_label.pack(pady=10, padx=10)
+                 
+                 except Exception as e:
+                    
+                    print(f"Error : {e}")
+            
+            
+    def cv_image(self):
+        
+        self.picture = self.picture.convert("L") # convert to grayscale for morphology
+        new_img = np.array(self.picture)
+        kernel = cv.getStructuringElement(cv.MORPH_RECT, (5, 5))
+        target = cv.morphologyEx(new_img, cv.MORPH_GRADIENT, kernel)
+        
+        plt.imshow(target, cmap='gray'),plt.title('After morphology (fourth test)')
+
+        # Hide grid lines
+        plt.grid(False)
+        # Hide axes ticks
+        plt.axis('off')
+
+        # Display the graph
+        plt.show() 
+        
+        # Reshape the picture, flatten it to transform into a vector 1darray
+        pic = cv.resize(target, (28, 28)).flatten().astype(np.uint8)
+
+        
+        try :
+            
+            best = grid.best_estimator_
+            
+            print(best)
+
+            # Display Prediction
+            prediction = best.predict([pic])[-1] # Predict from the picture 
+            
+            prediction = ctk.CTkLabel(self.p_frame, text=f"Number on the picture is : {prediction}", font=ctk.CTkFont(size=20, weight="bold")) 
+            prediction.pack(pady=10, padx=10)
+            
+            print(f"{prediction}")
+                        
+
+        except Exception as e:
+            
+            nomatch = ctk.CTkLabel(self.p_frame, text=f"{e}", 
+                        font=ctk.CTkFont(size=20, weight="bold"))
+            nomatch.pack(pady=10, padx=10)
+            print(f"No match ! Please retry! : {e}")
+         
+                 
+        
+
 # --------------------------------------The GUI ------------------------------#         
 
 # Frame
@@ -291,7 +444,7 @@ class MyFrame(ctk.CTkFrame):
         
         # Handwritten Recognition From Picture Button
         self.b_hand = ctk.CTkButton(self,
-                                  text="🔒 Handwritten Picture",
+                                  text="Handwritten Picture",
                                   font=("Klee One", 30), 
                                   text_color="black",
                                   fg_color="white",
@@ -299,10 +452,11 @@ class MyFrame(ctk.CTkFrame):
                                   width=400, height=32,
                                   border_width=0, 
                                   corner_radius=8,
-                                  state="disabled")
+                                  command=lambda: PhotoPredict(master=self.master))
         self.b_hand.grid(row=4, column=0, padx=100, pady=50)
     
-    
+# ------------------------------------The App Window -------------------------#         
+   
 # App
 class App(ctk.CTk):
     
